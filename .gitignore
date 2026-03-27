@@ -1,0 +1,13 @@
+# Originais e versões intermediárias do vídeo
+original_laptop-choral_MVI_7342.MOV
+leve.mp4
+leve_faststart.mp4
+leve_web.mp4
+
+# Debug
+debug_seek.py
+debug.mjs
+test-results/
+
+# Claude
+.claude/
