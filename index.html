@@ -358,6 +358,9 @@ const IS_MOBILE = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
 
 if (IS_MOBILE) {
   document.querySelectorAll('.desktop-only').forEach(el => el.style.display = 'none');
+  const chBtns = document.getElementById('channel-buttons');
+  chBtns.style.display = 'grid';
+  chBtns.style.gridTemplateColumns = '1fr 1fr';
 }
 
 // ============================================================
