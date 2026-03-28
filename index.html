@@ -1249,6 +1249,7 @@ document.getElementById('channel-buttons').addEventListener('click', (e) => {
 
 document.getElementById('go-btn').addEventListener('click', () => {
   if (!selectedDuration || !selectedChannels) return;
+  if (audioCtx) audioCtx.resume(); // resume immediately in user gesture, before async chain
   acquireWakeLock();
   startPlayback().catch(e => dbg('startPlayback ERRO: ' + e.message));
 });
