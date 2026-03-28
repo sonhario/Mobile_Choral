@@ -294,6 +294,11 @@
       <button class="ch-btn" data-channels="2">2</button>
       <button class="ch-btn" data-channels="3">3</button>
       <button class="ch-btn" data-channels="4">4</button>
+      <button class="ch-btn desktop-only" data-channels="6">6</button>
+      <button class="ch-btn desktop-only" data-channels="8">8</button>
+      <button class="ch-btn desktop-only" data-channels="12">12</button>
+      <button class="ch-btn desktop-only" data-channels="16">16</button>
+      <button class="ch-btn desktop-only" data-channels="24">24</button>
     </div>
   </div>
   <button id="go-btn">GERAR E REPRODUZIR PARTITURA</button>
@@ -352,6 +357,10 @@ const VIDEO_SRC = 'V3_final_hd.mp4';
 // Detect iOS/iPadOS — these have the single decoder limitation
 const IS_MOBILE = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
   (navigator.userAgent.includes('Mac') && 'ontouchend' in document);
+
+if (IS_MOBILE) {
+  document.querySelectorAll('.desktop-only').forEach(el => el.style.display = 'none');
+}
 
 // ============================================================
 // STATE
