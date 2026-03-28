@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Laptop Choral — Mobile</title>
+<title>Dissimulation #V: Celular Coral</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -99,6 +99,97 @@
     text-transform: uppercase;
   }
 
+  .overlay .subtitle {
+    font-size: 11px;
+    letter-spacing: 3px;
+    opacity: 0.5;
+    text-transform: uppercase;
+    margin-top: -12px;
+  }
+
+  .overlay .supertitle {
+    font-size: 11px;
+    letter-spacing: 2px;
+    opacity: 0.4;
+    text-transform: uppercase;
+    margin-bottom: -8px;
+  }
+
+  #sobre-btn {
+    position: fixed;
+    top: 16px;
+    right: 20px;
+    background: none;
+    border: none;
+    color: #fff;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    opacity: 0.4;
+    cursor: pointer;
+    z-index: 200;
+    padding: 4px 0;
+  }
+  #sobre-btn:hover { opacity: 0.8; }
+
+  #sobre-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.92);
+    z-index: 300;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 24px;
+  }
+  #sobre-modal.open { display: flex; }
+
+  #sobre-box {
+    max-width: 560px;
+    width: 100%;
+    text-align: left;
+    font-size: 13px;
+    line-height: 1.7;
+    color: #ccc;
+  }
+
+  #sobre-box h2 {
+    font-size: 13px;
+    font-weight: normal;
+    letter-spacing: 1px;
+    color: #fff;
+    margin-bottom: 16px;
+  }
+
+  #sobre-box .ficha {
+    margin-top: 24px;
+    opacity: 0.6;
+    font-size: 12px;
+    line-height: 1.8;
+  }
+
+  #sobre-box .ficha strong {
+    color: #fff;
+    font-weight: normal;
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  #sobre-close {
+    display: block;
+    margin-top: 28px;
+    background: none;
+    border: none;
+    color: #fff;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    opacity: 0.4;
+    cursor: pointer;
+    padding: 0;
+  }
+  #sobre-close:hover { opacity: 0.8; }
+
   .overlay p { font-size: 13px; opacity: 0.5; }
 
   .overlay button {
@@ -149,8 +240,27 @@
 </head>
 <body>
 
+<button id="sobre-btn">SOBRE</button>
+
+<div id="sobre-modal">
+  <div id="sobre-box">
+    <h2>Dissimulation #V: Celular Coral</h2>
+    <p>O trabalho é uma adaptação para web do trabalho Laptop Coral (Viena 2012). A versão original, concebida para a obra Bare Branches de Pia Palme para o festival Wien Modern, a qual inaugurou a série de trabalhos Simulacrum aqui é atualizada para um contexto tecnológico diferente, modulado por tecnologias ubíquas e disruptivas que dissimulam a formação de tecidos sônicos coletivos. Nesta versão o laptop é substituído por celulares que acessam o conteúdo disponível via web. A proposta é criar uma experiência coletiva, onde os participantes acessam conjuntamente o material sonoro via web. O trabalho reafirma o conceito original de coral maquínico através da coletividade em rede local, explora os dispositivos contemporâneos através de uma performatividade coletiva convidando os ouvintes/participantes a exercitar a escuta de um coro polifônico.</p>
+    <div class="ficha">
+      <strong>Ficha técnica</strong>
+      Autor: Giuliano Obici<br>
+      Título da proposta: Dissimulation V: Celular Coral<br>
+      Ano: 2026<br>
+      Dados técnicos: programação web<br>
+      Voz: Salome Kammer interpretando solo de "Bare Branches" de Pia Palme
+    </div>
+    <button id="sobre-close">FECHAR</button>
+  </div>
+</div>
+
 <div id="start-screen" class="overlay">
-  <h1>Laptop Choral</h1>
+  <p class="supertitle">Dissimulation #V:</p>
+  <h1>Celular Coral</h1>
   <button id="start-btn">ENTRAR</button>
   <div id="loading">
     <p id="loading-text">carregando...</p>
@@ -1131,6 +1241,16 @@ document.getElementById('go-btn').addEventListener('click', () => {
 // ENTRAR
 // Desktop: skip heavy loading (videos load on demand)
 // Mobile: fetch MP4, decode audio, load video for frame extraction
+document.getElementById('sobre-btn').addEventListener('click', () => {
+  document.getElementById('sobre-modal').classList.add('open');
+});
+document.getElementById('sobre-close').addEventListener('click', () => {
+  document.getElementById('sobre-modal').classList.remove('open');
+});
+document.getElementById('sobre-modal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) document.getElementById('sobre-modal').classList.remove('open');
+});
+
 // ============================================================
 document.getElementById('start-btn').addEventListener('click', async () => {
   const btn = document.getElementById('start-btn');
