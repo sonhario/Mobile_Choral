@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Celular Coral — Plataforma de Testes</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a0a;
+    color: #ccc;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  #header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 14px;
+    background: #111;
+    border-bottom: 1px solid #1e1e1e;
+    flex-shrink: 0;
+  }
+  #header h1 { font-size: 12px; font-weight: normal; letter-spacing: 2px; color: #aaa; }
+  #header h1 span { color: #aaa; }
+
+  .hbtn {
+    background: none; border: 1px solid #aaa; color: #aaa;
+    padding: 6px 20px; font-family: 'Courier New', monospace;
+    font-size: 13px; letter-spacing: 1px; cursor: pointer; transition: all 0.15s;
+  }
+  .hbtn:hover { border-color: #ddd; color: #ddd; }
+  .hbtn.active { background: #ddd; color: #000; border-color: #ddd; }
+
+  #status { font-size: 11px; color: #444; margin-left: auto; }
+  #status.playing { color: #7c7; }
+  #status.error   { color: #c77; }
+
+  #main { flex: 1; display: flex; overflow: hidden; min-height: 0; }
+
+  /* ---- EDITOR ---- */
+  #editor-panel { width: 46%; display: flex; flex-direction: column; border-right: 1px solid #1a1a1a; }
+
+  .panel-label {
+    padding: 5px 12px; font-size: 10px; letter-spacing: 2px;
+    color: #aaa; background: #111; border-bottom: 1px solid #1e1e1e;
+    flex-shrink: 0;
+  }
+
+  #editor-wrap { flex: 1; position: relative; overflow: hidden; }
+
+  #highlight-layer, #code-editor {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    margin: 0; padding: 14px 16px;
+    font-family: 'Courier New', monospace; font-size: 13px; line-height: 1.65;
+    white-space: pre; overflow: auto; tab-size: 2;
+    border: none; word-wrap: normal;
+  }
+  #highlight-layer {
+    background: #0c0c0c; color: #d4d4d4;
+    pointer-events: none; z-index: 1;
+  }
+  #code-editor {
+    background: transparent; color: transparent;
+    caret-color: #fff; outline: none; resize: none;
+    z-index: 2; -webkit-text-fill-color: transparent;
+  }
+
+  /* cores VSCode dark */
+  .hl-c  { color: #6a9955; }          /* comentários */
+  .hl-s  { color: #ce9178; }          /* strings */
+  .hl-n  { color: #b5cea8; }          /* números */
+  .hl-k  { color: #569cd6; }          /* true/false/null */
+  .hl-fn { color: #dcdcaa; }          /* run / stop / id */
+  .hl-p  { color: #9cdcfe; }          /* chaves de objeto */
+
+  /* ---- PLAYER ---- */
+  #player-panel { flex: 1; display: flex; flex-direction: column; }
+
+  #video-container {
+    flex: 1; background: #000; position: relative;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden; min-height: 0;
+  }
+
+  #player-video {
+    max-width: 100%; max-height: 100%;
+    object-fit: contain; opacity: 0;
+  }
+
+  #dark-overlay {
+    position: absolute; inset: 0; background: #000; opacity: 0;
+    pointer-events: none;
+  }
+
+  #now-playing {
+    position: absolute; bottom: 8px; left: 10px;
+    font-size: 10px; color: #444; pointer-events: none; letter-spacing: 1px;
+  }
+
+  /* ---- BOTTOM ---- */
+  #bottom { flex-shrink: 0; border-top: 1px solid #1a1a1a; }
+
+  #timeline-wrap {
+    padding: 10px 14px 8px;
+    overflow-x: auto; overflow-y: hidden;
+    height: 52px;
+  }
+
+  #timeline { display: flex; height: 24px; gap: 2px; align-items: center; min-width: 100%; }
+
+  .tl-ev {
+    height: 18px; min-width: 4px; border-radius: 2px;
+    background: #262626; flex-shrink: 0; cursor: default;
+    transition: background 0.1s;
+  }
+  .tl-ev.playing { background: #ccc; }
+  .tl-ev.done    { background: #1c1c1c; }
+  .tl-ev.dark    { background: #222; border: 1px solid #333; }
+
+  #tl-total { font-size: 10px; color: #333; padding: 0 14px 6px; letter-spacing: 1px; }
+
+  #console-log {
+    padding: 6px 14px; font-size: 11px; color: #3a3a3a;
+    border-top: 1px solid #161616; background: #080808;
+    height: 30px; overflow: hidden; white-space: nowrap;
+  }
+  #console-log.err { color: #c77; }
+  #console-log.ok  { color: #5a5a5a; }
+
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1>Celular Coral — <span>Plataforma de Testes</span></h1>
+  <button class="hbtn" id="run-btn" onclick="execCode()">▶ RUN</button>
+  <button class="hbtn" onclick="stopPlayback()">■ STOP</button>
+  <span id="status">—</span>
+</div>
+
+
+<div id="main">
+  <div id="editor-panel">
+    <div class="panel-label">CÓDIGO</div>
+    <div id="editor-wrap">
+      <pre id="highlight-layer" aria-hidden="true"></pre>
+      <textarea id="code-editor" spellcheck="false" autocorrect="off" autocapitalize="off"></textarea>
+    </div>
+  </div>
+  <div id="player-panel">
+    <div class="panel-label">PLAYER</div>
+    <div id="video-container">
+      <video id="player-video" playsinline preload="auto"></video>
+      <div id="dark-overlay"></div>
+      <div id="now-playing"></div>
+    </div>
+  </div>
+</div>
+
+<div id="bottom">
+  <div id="timeline-wrap"><div id="timeline"></div></div>
+  <div id="tl-total"></div>
+  <div id="console-log">—</div>
+</div>
+
+<script>
+const VIDEO_SRC = 'V3_final_hd.mp4';
+
+// Fragmentos do projeto (referência rápida por ID)
+const FRAGMENTS = [
+  { id: 1,  start: 2.0,   end: 5.5   },
+  { id: 2,  start: 8.0,   end: 10.2  },
+  { id: 3,  start: 14.5,  end: 18.0  },
+  { id: 4,  start: 22.0,  end: 24.5  },
+  { id: 5,  start: 30.0,  end: 35.0  },
+  { id: 6,  start: 40.0,  end: 42.8  },
+  { id: 7,  start: 48.0,  end: 53.0  },
+  { id: 8,  start: 58.0,  end: 61.5  },
+  { id: 9,  start: 68.0,  end: 72.0  },
+  { id: 10, start: 78.0,  end: 80.5  },
+  { id: 11, start: 85.0,  end: 90.0  },
+  { id: 12, start: 95.0,  end: 98.5  },
+  { id: 13, start: 105.0, end: 110.0 },
+  { id: 14, start: 118.0, end: 122.0 },
+  { id: 15, start: 130.0, end: 135.0 },
+  { id: 16, start: 140.0, end: 145.5 },
+  { id: 17, start: 150.0, end: 155.0 },
+];
+
+// ============================================================
+// API — só o essencial. Tudo o mais é objeto JS puro.
+// ============================================================
+
+// id(n) — atalho para pegar start/dur de um fragmento pelo id
+function id(n) {
+  const fr = FRAGMENTS.find(x => x.id === n);
+  if (!fr) throw new Error(`fragmento id:${n} não encontrado`);
+  return { start: fr.start, dur: fr.end - fr.start };
+}
+
+// Resolve dur → end antes de expandir
+function resolveEnd(ev) {
+  if (ev.end !== undefined) return ev;
+  if (ev.dur !== undefined) return { ...ev, end: ev.start + ev.dur };
+  throw new Error(`evento sem end ou dur: start=${ev.start}`);
+}
+
+// Expande um objeto em array de eventos executáveis
+function expandEvent(ev) {
+  ev = resolveEnd(ev);
+  const evs  = [];
+  const base = ev.end - ev.start;
+
+  if (ev.grain !== undefined) {
+    // síntese granular — 4 modos via anchor + expand/contract
+    // anchor: 'start' → início fixo   |   anchor: 'end' → fim fixo
+    // expand   → grão cresce (i: 1..n)
+    // contract → grão encolhe (i: n..1)
+    const g          = ev.grain;
+    const n          = g.expand ?? g.contract;
+    const step       = g.step || 0.5;
+    const isExpand   = g.expand !== undefined;
+    const anchorEnd  = g.anchor === 'end';
+    // dur define o tamanho base do grão; step é o delta a cada loop
+    // expand:   base, base+step, base+2*step, ...
+    // contract: base, base-step, base-2*step, ...
+    const indices    = Array.from({ length: n }, (_, k) => k);
+
+    indices.forEach((i, loopIdx) => {
+      const grainDur = base + (isExpand ? step * i : -step * i);
+      const dur      = Math.max(0.01, grainDur); // nunca negativo
+      const s        = anchorEnd ? ev.end - dur : ev.start;
+      const e        = anchorEnd ? ev.end        : ev.start + dur;
+      evs.push(normalize({ ...ev, start: s, end: e,
+        fadeIn:  loopIdx === 0     ? (ev.fadeIn  || 0) : 0,
+        fadeOut: loopIdx === n - 1 ? (ev.fadeOut || 0) : 0,
+      }));
+    });
+
+  } else if (ev.ratio !== undefined) {
+    // gesto 3: proporção explícita, ex: [1,2,3,4,5]
+    const list = ev.ratio;
+    const unit = base / Math.max(...list);
+    for (let i = 0; i < list.length; i++) {
+      evs.push(normalize({ ...ev, start: ev.start, end: ev.start + unit * list[i],
+        fadeIn:  i === 0              ? (ev.fadeIn  || 0) : 0,
+        fadeOut: i === list.length-1  ? (ev.fadeOut || 0) : 0 }));
+    }
+
+  } else {
+    // normal — repete `times` vezes (default 1)
+    const n = ev.times || 1;
+    for (let i = 0; i < n; i++) {
+      evs.push(normalize({ ...ev,
+        fadeIn:  i === 0     ? (ev.fadeIn  || 0) : 0,
+        fadeOut: i === n - 1 ? (ev.fadeOut || 0) : 0 }));
+    }
+  }
+
+  return evs;
+}
+
+// Normaliza propriedades para o player
+function normalize(ev) {
+  const end = ev.end ?? (ev.start + (ev.dur || 0));
+  return {
+    ...ev,
+    end,
+    volume:  ev.mute ? 0 : (ev.volume ?? 1),
+    alpha:   ev.dark ? 0 : (ev.alpha  ?? 1),
+    speed:   ev.speed  || 1,
+    fadeIn:  ev.fadeIn  || 0,
+    fadeOut: ev.fadeOut || 0,
+    label:   `${Number(ev.start).toFixed(1)}s  ${Number(end - ev.start).toFixed(1)}s`,
+  };
+}
+
+function expandScore(score) {
+  const events = [];
+  for (const item of [].concat(score)) events.push(...expandEvent(item));
+  return events;
+}
+
+// ============================================================
+// PLAYER
+// ============================================================
+let ps = null; // playback state
+
+function execCode() {
+  stopPlayback();
+
+  const code = document.getElementById('code-editor').value.trim();
+  if (!code) return;
+
+  let events = null;
+
+  function run(score) { events = expandScore(score); }
+  const stop = stopPlayback;
+
+  try {
+    const fn = new Function('run', 'stop', 'id', 'FRAGMENTS', code);
+    fn(run, stop, id, FRAGMENTS);
+  } catch (e) {
+    setStatus('erro: ' + e.message, 'error');
+    clog('erro: ' + e.message, 'err');
+    console.error(e);
+    return;
+  }
+
+  if (!events || events.length === 0) {
+    setStatus('use run([...]) para executar', 'error');
+    return;
+  }
+
+  renderTimeline(events);
+  startPlayback(events);
+}
+
+function startPlayback(events) {
+  const vid = document.getElementById('player-video');
+  vid.src = VIDEO_SRC;
+  vid.load();
+
+  ps = { events, idx: -1, alive: true, fadeIv: null, stepTo: null };
+
+  vid.addEventListener('canplay', () => playNext(), { once: true });
+  document.getElementById('run-btn').classList.add('active');
+  setStatus(`${events.length} evento(s)`, 'playing');
+}
+
+function playNext() {
+  if (!ps || !ps.alive) return;
+  ps.idx++;
+
+  if (ps.idx >= ps.events.length) { finish(); return; }
+
+  const ev  = ps.events[ps.idx];
+  const vid = document.getElementById('player-video');
+  const ovl = document.getElementById('dark-overlay');
+
+  vid.playbackRate  = ev.speed;
+  vid.volume        = ev.volume;
+  vid.style.opacity = String(ev.alpha);
+  ovl.style.opacity = ev.dark ? '1' : '0';
+
+  if (ev.fadeIn > 0) {
+    vid.style.opacity = '0';
+    vid.volume = 0;
+    const t0 = Date.now(), va = ev.alpha, vv = ev.volume;
+    if (ps.fadeIv) clearInterval(ps.fadeIv);
+    ps.fadeIv = setInterval(() => {
+      const t = Math.min(1, (Date.now() - t0) / 1000 / ev.fadeIn);
+      if (!ev.dark) vid.style.opacity = String(t * va);
+      vid.volume = t * vv;
+      if (t >= 1) { clearInterval(ps.fadeIv); ps.fadeIv = null; }
+    }, 30);
+  }
+
+  vid.currentTime = ev.start;
+  hlTimeline(ps.idx);
+  clog(ev.label + (ev.dark ? ' [dark]' : '') + (ev.vol === 0 ? ' [mute]' : '') + ` ×${ev.speed}`, 'ok');
+  document.getElementById('now-playing').textContent =
+    `${ps.idx + 1} / ${ps.events.length}  ${ev.label}`;
+
+  let done = false;
+  const onSeeked = () => {
+    if (done) return; done = true;
+    vid.removeEventListener('seeked', onSeeked);
+    if (!ps || !ps.alive) return;
+
+    vid.play().catch(() => {});
+
+    const onTU = () => {
+      if (!ps || !ps.alive) { vid.removeEventListener('timeupdate', onTU); return; }
+      if (vid.currentTime >= ev.end) {
+        vid.removeEventListener('timeupdate', onTU);
+        vid.pause();
+        if (ps.stepTo) clearTimeout(ps.stepTo);
+
+        if (ev.fadeOut > 0) {
+          const o0 = parseFloat(vid.style.opacity) || 1, v0 = vid.volume, t0 = Date.now();
+          if (ps.fadeIv) clearInterval(ps.fadeIv);
+          ps.fadeIv = setInterval(() => {
+            const t = Math.min(1, (Date.now() - t0) / 1000 / ev.fadeOut);
+            vid.style.opacity = String(o0 * (1 - t));
+            vid.volume = v0 * (1 - t);
+            if (t >= 1) { clearInterval(ps.fadeIv); ps.fadeIv = null; playNext(); }
+          }, 30);
+        } else {
+          playNext();
+        }
+      }
+    };
+    vid.addEventListener('timeupdate', onTU);
+
+    ps.stepTo = setTimeout(() => {
+      vid.removeEventListener('timeupdate', onTU);
+      vid.pause();
+      playNext();
+    }, ((ev.end - ev.start) / ev.speed + 2) * 1000);
+  };
+
+  vid.addEventListener('seeked', onSeeked);
+  setTimeout(() => { if (!done) { done = true; vid.removeEventListener('seeked', onSeeked); onSeeked(); } }, 3000);
+}
+
+function finish() {
+  const vid = document.getElementById('player-video');
+  const o0 = parseFloat(vid.style.opacity) || 1, v0 = vid.volume, t0 = Date.now();
+  const fi = setInterval(() => {
+    const t = Math.min(1, (Date.now() - t0) / 1000 / 1.5);
+    vid.style.opacity = String(o0 * (1 - t));
+    vid.volume = v0 * (1 - t);
+    if (t >= 1) {
+      clearInterval(fi);
+      vid.pause();
+      vid.style.opacity = '0';
+      document.getElementById('now-playing').textContent = '';
+    }
+  }, 30);
+  ps = null;
+  setStatus('fim', '');
+  document.getElementById('run-btn').classList.remove('active');
+}
+
+function stopPlayback() {
+  if (!ps) return;
+  ps.alive = false;
+  if (ps.fadeIv) clearInterval(ps.fadeIv);
+  if (ps.stepTo) clearTimeout(ps.stepTo);
+  ps = null;
+  const vid = document.getElementById('player-video');
+  vid.pause();
+  vid.style.opacity = '0';
+  vid.volume = 1;
+  document.getElementById('dark-overlay').style.opacity = '0';
+  document.getElementById('now-playing').textContent = '';
+  setStatus('parado', '');
+  document.getElementById('run-btn').classList.remove('active');
+}
+
+// ============================================================
+// TIMELINE
+// ============================================================
+function renderTimeline(events) {
+  const tl   = document.getElementById('timeline');
+  const wrap = document.getElementById('timeline-wrap');
+  tl.innerHTML = '';
+
+  const total = events.reduce((s, e) => s + (e.end - e.start) / e.speed, 0);
+  const maxW  = wrap.clientWidth - 28;
+  const PX_PER_SEC = maxW / total;
+
+  events.forEach((ev, i) => {
+    const dur = (ev.end - ev.start) / ev.speed;
+    const div = document.createElement('div');
+    div.className = 'tl-ev' + (ev.dark ? ' dark' : '');
+    div.style.width = Math.max(4, dur * PX_PER_SEC) + 'px';
+    div.id  = 'tl' + i;
+    div.title = ev.label;
+    tl.appendChild(div);
+  });
+
+  const mins = Math.floor(total / 60);
+  const secs = (total % 60).toFixed(1);
+  document.getElementById('tl-total').textContent =
+    `total: ${mins > 0 ? mins + 'm ' : ''}${secs}s  ·  ${events.length} eventos`;
+}
+
+function hlTimeline(idx) {
+  document.querySelectorAll('.tl-ev').forEach((el, i) => {
+    el.classList.remove('playing', 'done');
+    if (i < idx)      el.classList.add('done');
+    else if (i === idx) el.classList.add('playing');
+  });
+}
+
+// ============================================================
+// UI
+// ============================================================
+function setStatus(msg, cls) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = cls || '';
+}
+function clog(msg, cls) {
+  const el = document.getElementById('console-log');
+  el.textContent = msg;
+  el.className = cls || '';
+}
+
+// ============================================================
+// SYNTAX HIGHLIGHTER — inline, sem dependências
+// ============================================================
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function highlight(text) {
+  // Tokeniza em: comentários, strings, e código
+  const tokens = [];
+  let i = 0, buf = '';
+
+  while (i < text.length) {
+    if (text[i] === '/' && text[i+1] === '/') {
+      if (buf) { tokens.push({ t: 'code', v: buf }); buf = ''; }
+      let j = i;
+      while (j < text.length && text[j] !== '\n') j++;
+      tokens.push({ t: 'comment', v: text.slice(i, j) });
+      i = j;
+    } else if (text[i] === "'") {
+      if (buf) { tokens.push({ t: 'code', v: buf }); buf = ''; }
+      let j = i + 1;
+      while (j < text.length && text[j] !== "'" && text[j] !== '\n') j++;
+      if (j < text.length && text[j] === "'") j++;
+      tokens.push({ t: 'string', v: text.slice(i, j) });
+      i = j;
+    } else {
+      buf += text[i++];
+    }
+  }
+  if (buf) tokens.push({ t: 'code', v: buf });
+
+  return tokens.map(tok => {
+    if (tok.t === 'comment') return `<span class="hl-c">${esc(tok.v)}</span>`;
+    if (tok.t === 'string')  return `<span class="hl-s">${esc(tok.v)}</span>`;
+    let v = esc(tok.v);
+    v = v.replace(/\b(\d+\.?\d*)\b/g,            '<span class="hl-n">$1</span>');
+    v = v.replace(/\b(true|false|null)\b/g,       '<span class="hl-k">$1</span>');
+    v = v.replace(/\b(run|stop|id)\b/g,           '<span class="hl-fn">$1</span>');
+    v = v.replace(/\b([a-zA-Z_]\w*)(\s*:)/g,      '<span class="hl-p">$1</span>$2');
+    return v;
+  }).join('');
+}
+
+function updateHighlight() {
+  const ta  = document.getElementById('code-editor');
+  const pre = document.getElementById('highlight-layer');
+  pre.innerHTML = highlight(ta.value) + '\n';
+  pre.scrollTop  = ta.scrollTop;
+  pre.scrollLeft = ta.scrollLeft;
+}
+
+const ta = document.getElementById('code-editor');
+ta.addEventListener('input',  updateHighlight);
+ta.addEventListener('scroll', () => {
+  const pre = document.getElementById('highlight-layer');
+  pre.scrollTop  = ta.scrollTop;
+  pre.scrollLeft = ta.scrollLeft;
+});
+ta.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); execCode(); }
+});
+
+
+// ============================================================
+// EXEMPLO INICIAL
+// ============================================================
+document.getElementById('code-editor').value = `run([
+
+  { start: 2,    dur: 3.5, fadeIn: 2  },
+  { start: 8,    dur: 2.2, times: 3   },
+  { start: 14.5, dur: 3.5, fadeOut: 3 },
+])
+
+
+// -- REFERÊNCIA / comandos -- //
+
+// INÍCIO e DURAÇÃO dos cortes:
+
+// { start: }, { dur: }          // obrigatórios (em segundos)
+// { end: }                      // alternativa a dur (fim absoluto)
+
+// EFEITOS:
+
+// LOOP:
+
+// { ..., times: 3 }             // repete 3 vezes
+
+// SÍNTESE GRANULAR:
+
+// ( grain: {} = ativa a síntese )
+// ( anchor: 'start' ) = início fixo   |   ( anchor: 'end' ) = fim fixo
+// ( expand ) = duração cresce a cada loop   |   ( contract ) = duração encolhe a cada loop
+// ( step: ) = quanto aumenta ou diminui na duração, a cada loop, em segundos float (default: 0.5s)
+// exemplos:
+// { ..., grain: { anchor: 'start', expand:   4 } }  = início fixo, grão cresce
+// { ..., grain: { anchor: 'start', contract: 4 } }  = início fixo, grão encolhe
+// { ..., grain: { anchor: 'end',   expand:   4 } }  = fim fixo, grão cresce
+// { ..., grain: { anchor: 'end',   contract: 4 } }  = fim fixo, grão encolhe
+// { ..., grain: { anchor: 'start', expand: 4, step: 0.5 } }  = step em segundos
+
+// FADES:
+
+// { ..., fadeIn: 2 }            = fade in de 2s
+// { ..., fadeOut: 3 }           = fade out de 3s
+
+// ÁUDIO:
+
+// { ..., volume: 0.5 }          = volume 0–1
+// { ..., mute: true }           = vídeo sem som
+
+// VISUAL:
+
+// { ..., alpha: 0.3 }           = transparência do vídeo 0–1
+// { ..., dark: true }           = som sem vídeo (tela preta)
+
+// array FRAGMENTS disponível para consulta direta
+
+
+// ── exemplos ──────────────────────────────────────────────────
+
+// UM CORTE:
+// run([ { start: 2, dur: 3.5 } ])
+
+// UM CORTE com FADE:
+// run([ { start: 2, dur: 3.5, fadeIn: 2, fadeOut: 2 } ])
+
+// UM CORTE em LOOP (4x):
+// run([ { start: 8, dur: 2.2, times: 4, fadeIn: 1, fadeOut: 1 } ])
+
+// UM CORTE com GRAIN — início fixo, grão cresce (4 loops de 0.5s cada):
+// run([ { start: 8, dur: 2.2, grain: { anchor: 'start', expand: 4 } } ])
+
+// UM CORTE com GRAIN — início fixo, grão cresce com step de 1s:
+// run([ { start: 14.5, dur: 3.5, grain: { anchor: 'start', expand: 6, step: 1 } } ])
+
+// SEQUÊNCIA DE CORTES:
+
+// run([
+//   { start: 2,   dur: 3.5, fadeIn: 2 },
+//   { start: 8,   dur: 2.2, times: 3 },
+//   { start: 22,  dur: 2.5, mute: true, alpha: 0.3 },
+//   { start: 68,  dur: 4,   dark: true, fadeOut: 3 },
+// ])
+
+// SEQUÊNCIA COM GRAIN:
+
+// run([
+//   { start: 2,   dur: 3.5, fadeIn: 2 },
+//   { start: 8,   dur: 2.2, grain: { anchor: 'start', expand: 4 } },
+//   { start: 30,  dur: 5,   grain: { anchor: 'end',   contract: 5 } },
+//   { start: 58,  dur: 3.5, times: 2, fadeOut: 3 },
+// ])
+`;
+updateHighlight();
+</script>
+</body>
+</html>
